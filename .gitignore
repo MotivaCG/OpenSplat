@@ -3,6 +3,7 @@
 
 # build
 build/
+my_build/
 .idea/
 .vscode/
 BUILT/

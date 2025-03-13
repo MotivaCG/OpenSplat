@@ -10,6 +10,7 @@ using json = nlohmann::json;
 namespace ns{ InputData inputDataFromNerfStudio(const std::string &projectRoot); }
 namespace cm{ InputData inputDataFromColmap(const std::string &projectRoot); }
 namespace osfm { InputData inputDataFromOpenSfM(const std::string &projectRoot); }
+namespace omvg { InputData inputDataFromOpenMVG(const std::string &projectRoot); }
 
 InputData inputDataFromX(const std::string &projectRoot){
     fs::path root(projectRoot);
@@ -22,8 +23,11 @@ InputData inputDataFromX(const std::string &projectRoot){
         return osfm::inputDataFromOpenSfM(projectRoot);
     }else if (fs::exists(root / "opensfm" / "reconstruction.json")){
         return osfm::inputDataFromOpenSfM((root / "opensfm").string());
-    }else{
-        throw std::runtime_error("Invalid project folder (must be either a colmap or nerfstudio project folder)");
+    }else if (fs::exists(root / "sfm_data.json")){
+        return omvg::inputDataFromOpenMVG((root).string());
+    }
+    else{
+        throw std::runtime_error("Invalid project folder (must be either a colmap or nerfstudio or openmvg project folder)");
     }
 }
 
@@ -40,7 +44,6 @@ void Camera::loadImage(float downscaleFactor){
     if (image.numel()) std::runtime_error("loadImage already called");
     std::cout << "Loading " << filePath << std::endl;
 
-    float scaleFactor = 1.0f / downscaleFactor;
     cv::Mat cImg = imreadRGB(filePath);
     
     float rescaleF = 1.0f;
@@ -48,14 +51,18 @@ void Camera::loadImage(float downscaleFactor){
     if (cImg.rows != height || cImg.cols != width){
         rescaleF = static_cast<float>(cImg.rows) / static_cast<float>(height);
     }
-    fx *= scaleFactor * rescaleF;
-    fy *= scaleFactor * rescaleF;
-    cx *= scaleFactor * rescaleF;
-    cy *= scaleFactor * rescaleF;
+    fx *= rescaleF;
+    fy *= rescaleF;
+    cx *= rescaleF;
+    cy *= rescaleF;
 
     if (downscaleFactor > 1.0f){
-        float f = 1.0f / downscaleFactor;
-        cv::resize(cImg, cImg, cv::Size(), f, f, cv::INTER_AREA);
+        float scaleFactor = 1.0f / downscaleFactor;
+        cv::resize(cImg, cImg, cv::Size(), scaleFactor, scaleFactor, cv::INTER_AREA);
+        fx *= scaleFactor;
+        fy *= scaleFactor;
+        cx *= scaleFactor;
+        cy *= scaleFactor;
     }
 
     K = getIntrinsicsMatrix();
